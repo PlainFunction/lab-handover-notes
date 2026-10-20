@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Room</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1 id="room">Room</h1>
+    <p id="me" hidden><span id="me-name"></span> · <span id="share-item" hidden><button type="button" id="share-open" class="link">Share</button> · </span><button type="button" id="sign-out" class="link">Sign out</button></p>
+  </header>
+
+  <main>
+    <form id="sign-in" class="panel narrow" hidden>
+      <h2>Sign in</h2>
+      <p>Open the link you were sent, or paste the token from it. It's kept in a cookie this page's code can't read.</p>
+      <label for="token">Token</label>
+      <input id="token" name="token" type="password" autocomplete="off" required>
+      <button type="submit">Sign in</button>
+      <p class="error" role="alert"></p>
+    </form>
+
+    <div id="app" class="layout" hidden>
+      <nav class="side">
+        <section id="waiting" class="panel attention" hidden>
+          <h2>Waiting on you</h2>
+          <ul id="drafts" class="plain"></ul>
+          <ul id="open-questions" class="plain"></ul>
+        </section>
+
+        <section>
+          <h2>Documents</h2>
+          <ul id="documents" class="plain docs"></ul>
+          <p id="no-docs" class="hint" hidden>Nothing's been published yet.</p>
+        </section>
+
+        <form id="add" class="panel" hidden>
+          <h2>Add a document or a new version</h2>
+          <label for="add-file">File <span class="hint">(Markdown, text, PDF, Word, Excel, HTML or an image. Anything but Markdown is converted, and only the Markdown is kept.)</span></label>
+          <input id="add-file" name="file" type="file" required>
+          <label for="add-doc">It's a new version of</label>
+          <select id="add-doc" name="document"><option value="">Nothing, it's a new document</option></select>
+          <label for="add-title">Title</label>
+          <input id="add-title" name="title" maxlength="120" placeholder="Taken from the file name if empty">
+          <label for="add-note">What changed <span class="hint">(readers see this next to the version)</span></label>
+          <input id="add-note" name="note" maxlength="300">
+          <button type="submit">Save as a draft</button>
+          <p class="hint">Nobody else sees it until you've read it and published it.</p>
+          <p class="error" role="alert"></p>
+        </form>
+
+        <details class="connect">
+          <summary>Ask from your own AI</summary>
+          <p>Any AI tool that speaks MCP can read these documents and ask about them. In Claude Code:</p>
+          <pre id="mcp-command"></pre>
+          <p class="hint">Use the token from the link you were sent. Ask whoever shared the room for a separate one for your AI if you'd rather.</p>
+        </details>
+      </nav>
+
+      <div class="main">
+        <form id="ask" class="ask">
+          <label for="question">Ask the documents</label>
+          <div class="row">
+            <input id="question" name="question" maxlength="1000" placeholder="What do I do if the follow-ups stop?" required>
+            <button type="submit" class="primary">Ask</button>
+          </div>
+          <p class="hint">Answers come only from what's published here, with where each part came from. If the documents don't say, we'll tell you and pass the question on.</p>
+        </form>
+        <ol id="answers" class="answers"></ol>
+        <p id="status" class="status" role="status"></p>
+
+        <article id="reader" hidden>
+          <div class="doc-head">
+            <h2 id="doc-title"></h2>
+            <p class="meta"><span id="doc-meta"></span></p>
+            <div class="row">
+              <label for="doc-version" class="sr">Version</label>
+              <select id="doc-version"></select>
+              <button type="button" id="doc-changes">What changed</button>
+            </div>
+          </div>
+          <pre id="doc-diff" class="diff" hidden></pre>
+          <div id="doc-body" class="md"></div>
+        </article>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="draft">
+    <form method="dialog" class="close"><button aria-label="Close">×</button></form>
+    <h2 id="draft-title"></h2>
+    <p id="draft-meta" class="meta"></p>
+    <p class="hint">Read it the way it'll be shared. If a conversion got something wrong, discard it and upload Markdown instead.</p>
+    <pre id="draft-diff" class="diff" hidden></pre>
+    <div id="draft-body" class="md"></div>
+    <div class="row actions">
+      <button type="button" id="publish" class="primary">Publish</button>
+      <button type="button" id="discard">Discard</button>
+    </div>
+    <p class="error" role="alert"></p>
+  </dialog>
+
+  <dialog id="share" class="small">
+    <form method="dialog" class="close"><button aria-label="Close">×</button></form>
+    <h2>Share the room</h2>
+    <form id="share-form">
+      <label for="share-name">Who it's for</label>
+      <input id="share-name" name="name" maxlength="80" placeholder="Kira" required>
+      <fieldset class="access">
+        <legend>What they can do</legend>
+        <label><input type="radio" name="access" value="viewer" checked> <strong>Viewer</strong> <span class="hint">Reads the documents and asks questions.</span></label>
+        <label><input type="radio" name="access" value="admin"> <strong>Admin</strong> <span class="hint">Also adds and publishes documents, replies to questions and shares the room.</span></label>
+      </fieldset>
+      <button type="submit" class="primary">Make a link</button>
+      <p class="error" role="alert"></p>
+    </form>
+    <div id="share-done" hidden>
+      <p id="share-message"></p>
+      <label for="share-link">Their link</label>
+      <div class="row">
+        <input id="share-link" readonly>
+        <button type="button" id="share-copy" class="primary">Copy</button>
+      </div>
+      <p class="hint">Send it to them yourself. Anyone with the link gets in as them.</p>
+      <details class="connect">
+        <summary>For their AI</summary>
+        <pre id="share-mcp"></pre>
+      </details>
+      <div class="row actions">
+        <button type="button" id="share-again">Share with someone else</button>
+        <button type="button" id="share-close">Done</button>
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>

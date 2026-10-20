@@ -1,0 +1,38 @@
+# One Worker per room (one client's handover notes, a project, an explainer), with its own D1.
+# The page is static assets in ./public; only /api/* and /mcp run the Worker.
+# Fill in the database id, then see README.md.
+
+name = "handover-notes"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+workers_dev = true
+preview_urls = false
+
+[vars]
+# The name at the top of the page and in the MCP server's instructions.
+ROOM_NAME = "Handover notes"
+# Questions each member can ask the documents in a day. A spend cap, not a quota.
+ASKS_PER_DAY = "50"
+# Every AI call goes through this AI Gateway. Unset, it's "default", which Cloudflare makes on the first call.
+# AI_GATEWAY_ID = "handover-notes"
+
+[assets]
+directory = "./public"
+# The page holds nothing private, so it's served without running any code.
+run_worker_first = ["/api/*", "/mcp"]
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "handover-notes"             # wrangler d1 create handover-notes --location oc
+database_id = "<d1 id>"
+
+# Workers AI answers questions and turns uploads into Markdown. It always runs on
+# Cloudflare, so wrangler dev needs `wrangler login`.
+[ai]
+binding = "AI"
+remote = true

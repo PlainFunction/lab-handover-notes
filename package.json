@@ -1,0 +1,28 @@
+{
+  "name": "lab-handover-notes",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Lab 008: handover notes kept as dated, versioned Markdown that a client asks questions of, on a web page or over MCP.",
+  "scripts": {
+    "dev": "wrangler dev --config wrangler.toml",
+    "db:local": "wrangler d1 execute handover-notes --local --config wrangler.toml --file schema.sql",
+    "db:remote": "wrangler d1 execute handover-notes --remote --config wrangler.toml --file schema.sql",
+    "invite": "node scripts/invite.mjs",
+    "deploy": "wrangler deploy --config wrangler.toml",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.json && vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.18.6",
+    "@cloudflare/workers-types": "4.20260702.1",
+    "@types/node": "24.13.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10",
+    "wrangler": "4.107.0"
+  }
+}
