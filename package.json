@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Lab 008: handover notes kept as dated, versioned Markdown that a client asks questions of, on a web page or over MCP.",
+  "imports": {
+    "#capabilities": "./capabilities/index.ts"
+  },
   "scripts": {
     "dev": "wrangler dev --config wrangler.toml",
     "db:local": "wrangler d1 execute handover-notes --local --config wrangler.toml --file schema.sql",

@@ -1,4 +1,5 @@
-import { ACTIONS, ActionError, inputSchema, perform, type Ctx } from './actions'
+import { ACTIONS, ActionError, inputSchema, type Ctx } from './actions'
+import type { Actions } from './module'
 
 // MCP over plain HTTP POST, JSON in and JSON out, with no session to keep.
 // The tools are the actions, so an agent gets the same list the page uses.
@@ -25,8 +26,8 @@ export const tools = (ctx: Ctx) => ACTIONS.filter(a => !a.who || a.who === 'anyo
 
 const RESOURCE = /^room:\/\/documents\/([a-z0-9-]+)$/
 
-async function resources(ctx: Ctx) {
-  const { documents } = await perform('list_documents', {}, ctx) as unknown as { documents: { slug: string; title: string; version: number; published_at: string; note: string }[] }
+async function resources(ctx: Ctx, actions: Actions) {
+  const { documents } = await actions.perform('list_documents', {}, ctx) as unknown as { documents: { slug: string; title: string; version: number; published_at: string; note: string }[] }
   return documents.map(d => ({
     uri: `room://documents/${d.slug}`,
     name: d.slug,
@@ -36,7 +37,7 @@ async function resources(ctx: Ctx) {
   }))
 }
 
-export async function mcp(request: Request, ctx: Ctx): Promise<Response> {
+export async function mcp(request: Request, ctx: Ctx, actions: Actions): Promise<Response> {
   let msg: RpcRequest
   try { msg = await request.json() } catch { return rpcError(null, -32700, 'That body is not JSON.') }
   if (Array.isArray(msg) || typeof msg !== 'object' || msg === null) return rpcError(null, -32600, 'Send one JSON-RPC request per POST.')
@@ -56,13 +57,13 @@ export async function mcp(request: Request, ctx: Ctx): Promise<Response> {
   }
   if (method === 'ping') return reply({})
   if (method === 'tools/list') return reply({ tools: tools(ctx) })
-  if (method === 'resources/list') return reply({ resources: await resources(ctx) })
+  if (method === 'resources/list') return reply({ resources: await resources(ctx, actions) })
   if (method === 'resources/templates/list') return reply({ resourceTemplates: [] })
   if (method === 'resources/read') {
     const slug = RESOURCE.exec(String(params.uri ?? ''))?.[1]
     if (!slug) return rpcError(id, -32602, 'Give a uri like room://documents/<slug>. resources/list has them.')
     try {
-      const doc = await perform('read_document', { document: slug }, ctx) as unknown as { markdown: string }
+      const doc = await actions.perform('read_document', { document: slug }, ctx) as unknown as { markdown: string }
       return reply({ contents: [{ uri: params.uri, mimeType: 'text/markdown', text: doc.markdown }] })
     } catch (err) {
       if (err instanceof ActionError) return rpcError(id, -32002, err.message)
@@ -71,7 +72,7 @@ export async function mcp(request: Request, ctx: Ctx): Promise<Response> {
   }
   if (method === 'tools/call') {
     try {
-      const result = await perform(String(params.name ?? ''), params.arguments ?? {}, ctx)
+      const result = await actions.perform(String(params.name ?? ''), params.arguments ?? {}, ctx)
       return reply({ content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result })
     } catch (err) {
       // A refused or failed action is a tool result the agent can read and act on, not a protocol error.
