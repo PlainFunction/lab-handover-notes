@@ -10,6 +10,16 @@ CREATE TABLE IF NOT EXISTS members (
   created_at TEXT NOT NULL
 );
 
+-- How long each token works and, for an agent, which actions it may run (a JSON list;
+-- NULL is every action its side allows). A member with no row here never runs out, so
+-- applying this again gives any that are missing a year from now.
+CREATE TABLE IF NOT EXISTS token_limits (
+  id TEXT PRIMARY KEY REFERENCES members(id),
+  expires_at TEXT NOT NULL,
+  actions TEXT
+);
+INSERT OR IGNORE INTO token_limits (id, expires_at) SELECT id, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+365 days') FROM members;
+
 -- A document is a name. Its words live in versions.
 CREATE TABLE IF NOT EXISTS documents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,3 +76,10 @@ CREATE TABLE IF NOT EXISTS questions (
 );
 CREATE INDEX IF NOT EXISTS questions_by ON questions (asked_by, id);
 CREATE INDEX IF NOT EXISTS questions_open ON questions (state, replied_at);
+
+-- One switch that stops the room: while 'off-switch' is here, every API and MCP call
+-- says nothing was done. npm run off -- --remote adds it; npm run on takes it away.
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

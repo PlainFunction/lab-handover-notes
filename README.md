@@ -72,6 +72,7 @@ claude mcp add --transport http room https://room.example.com/mcp --header "Auth
 
 ```bash
 npx wrangler d1 create handover-notes --location oc   # put the id in wrangler.toml
+# uncomment routes in wrangler.toml with your host: workers.dev is off
 npm run db:remote
 npm run invite -- --name "Sam" --side writer --url https://room.example.com --remote
 npm run deploy
@@ -87,6 +88,23 @@ Set `ROOM_NAME` in `wrangler.toml`. `ASKS_PER_DAY` caps questions per member
 (default 50), so a loop in someone's agent can't run up the bill. Run
 `npm run invite` again for the same name to replace a link, or
 `npm run invite -- --revoke <id> --remote` to stop one working.
+
+A person's token works for a year and an agent's for 90 days; `--days` changes
+that. `--actions` keeps an agent to the actions it needs, say
+`--kind agent --actions list_documents,read_document,ask`. Run `npm run db:remote` again after updating: it adds
+the table for this and gives tokens from before it a year.
+
+## Switching it off
+
+`npm run off -- --remote` stops the room without a deploy: every API and MCP
+call says nothing was done, for people and agents alike. Nothing is deleted, and
+`npm run on -- --remote` starts it again.
+
+## If a token leaks
+
+Revoke it (`--revoke <id> --remote`) and give them a new one. There are no other
+keys to rotate: Workers AI and D1 are bindings, not keys. If you can't tell
+which token leaked, switch it off, replace them all, and switch it back on.
 
 ## License
 

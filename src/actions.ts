@@ -6,7 +6,14 @@ import { diffLines, MAX_MARKDOWN, normalise, sections } from './markdown'
 // call perform(), so a person and an agent, on either side, get the same
 // things, except where an action says otherwise.
 
-export interface Member { id: string; name: string; kind: 'person' | 'agent'; side: 'writer' | 'reader' }
+export interface Member {
+  id: string; name: string; kind: 'person' | 'agent'; side: 'writer' | 'reader'
+  /** For an agent, the only actions its token may run. Unset, every action its side allows. */
+  actions?: string[]
+}
+
+/** How long a token works unless the invite says otherwise. People keep a link for a year; agents get 90 days. */
+export const TOKEN_DAYS = { person: 365, agent: 90 } as const
 export interface Ctx {
   db: D1Database
   ai?: Ai
@@ -424,8 +431,12 @@ export const ACTIONS: Action[] = [
       for (let n = 2; taken.has(id); n++) id = `${base}-${n}`
       const bytes = crypto.getRandomValues(new Uint8Array(32))
       const token = `hn_${btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`
-      await ctx.db.prepare('INSERT INTO members (id, name, kind, side, token_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(id, name, 'person', side, await sha256Hex(token), ctx.now.toISOString()).run()
+      const expires = new Date(ctx.now.getTime() + TOKEN_DAYS.person * 86_400_000)
+      await ctx.db.batch([
+        ctx.db.prepare('INSERT INTO members (id, name, kind, side, token_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(id, name, 'person', side, await sha256Hex(token), ctx.now.toISOString()),
+        ctx.db.prepare('INSERT INTO token_limits (id, expires_at) VALUES (?, ?)').bind(id, expires.toISOString()),
+      ])
       const origin = ctx.origin ?? ''
       return {
         message: `${name} can now ${access === 'admin' ? 'read, add, publish, reply and share' : 'read and ask'}. Copy the link now: nobody can see it again.`,
@@ -458,6 +469,7 @@ export async function perform(name: string, raw: unknown, ctx: Ctx): Promise<Res
   const a = find(name)
   const who = a.who ?? 'anyone'
   if (who !== 'anyone' && ctx.member.side !== 'writer') throw new ActionError(403, `Nothing changed: ${a.name} is for the people who write the documents.`)
+  if (ctx.member.actions && !ctx.member.actions.includes(a.name)) throw new ActionError(403, `Nothing changed: this token can't ${a.name}. Ask whoever runs the room for one that can.`)
   if (who === 'writer-people' && ctx.member.kind !== 'person') throw new ActionError(403, `Nothing changed: only a person can ${{ publish_draft: 'publish', share: 'share the room' }[a.name] ?? 'reply'}. Agents can add drafts for a person to publish.`)
   const parsed = a.input.safeParse(raw ?? {})
   if (!parsed.success) {

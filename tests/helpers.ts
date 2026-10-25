@@ -23,7 +23,7 @@ export const MEMBERS: Record<string, Member & { token: string }> = {
 export async function reset() {
   const statements = schema.split('\n').filter(l => !l.trim().startsWith('--')).join('\n').split(';').map(s => s.trim()).filter(Boolean)
   // Dropped, not emptied: AUTOINCREMENT would carry on numbering from the last test.
-  await env.DB.batch(['questions', 'sections', 'versions', 'documents', 'members'].map(t => env.DB.prepare(`DROP TABLE IF EXISTS ${t}`)))
+  await env.DB.batch(['settings', 'questions', 'sections', 'versions', 'documents', 'token_limits', 'members'].map(t => env.DB.prepare(`DROP TABLE IF EXISTS ${t}`)))
   await env.DB.batch(statements.map(s => env.DB.prepare(s)))
   for (const m of Object.values(MEMBERS)) {
     await env.DB.prepare("INSERT INTO members (id, name, kind, side, token_hash, created_at) VALUES (?, ?, ?, ?, ?, '2026-08-01T00:00:00Z')")

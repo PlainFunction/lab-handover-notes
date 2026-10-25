@@ -17,7 +17,7 @@ If the documents don't answer something, say so and use ask_writers rather than 
 interface RpcRequest { jsonrpc?: string; id?: number | string | null; method?: string; params?: Record<string, unknown> }
 
 /** Readers don't see the writer-only tools at all. */
-export const tools = (ctx: Ctx) => ACTIONS.filter(a => !a.who || a.who === 'anyone' || ctx.member.side === 'writer').map(a => ({
+export const tools = (ctx: Ctx) => ACTIONS.filter(a => (!a.who || a.who === 'anyone' || ctx.member.side === 'writer') && (!ctx.member.actions || ctx.member.actions.includes(a.name))).map(a => ({
   name: a.name,
   description: a.description,
   inputSchema: inputSchema(a),

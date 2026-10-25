@@ -15,7 +15,9 @@
     "deploy": "wrangler deploy --config wrangler.toml",
     "typecheck": "tsc -p tsconfig.json",
     "test": "tsc -p tsconfig.json && vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "off": "node scripts/switch.mjs off",
+    "on": "node scripts/switch.mjs on"
   },
   "dependencies": {
     "zod": "4.4.3"

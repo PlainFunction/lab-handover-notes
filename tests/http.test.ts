@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ai, fetchWorker, ORIGIN, reset } from './helpers'
+import { env } from 'cloudflare:workers'
+import { ai, call, fetchWorker, ORIGIN, reset, rpc } from './helpers'
 
 beforeEach(reset)
 
@@ -71,5 +72,41 @@ describe('uploading a file', () => {
     const cookie = asCookie(await signIn('sam-token'))
     expect((await upload({ cookie }, { file: new File(['# Hi there'], 'a.md') })).status).toBe(401)
     expect((await upload({ cookie, origin: ORIGIN }, { file: new File(['# Hi there'], 'a.md') })).status).toBe(200)
+  })
+})
+
+describe('token limits', () => {
+  it('stops a token working once it has run out', async () => {
+    await env.DB.prepare("INSERT INTO token_limits (id, expires_at) VALUES ('kira', '2000-01-01T00:00:00Z')").run()
+    expect((await signIn('kira-token')).status).toBe(401)
+    expect((await call('kira-token', 'list_documents')).status).toBe(401)
+    expect((await call('sam-token', 'list_documents')).status).toBe(200)
+  })
+
+  it('keeps an agent to the actions its token lists, over the API and MCP', async () => {
+    await env.DB.prepare(`INSERT INTO token_limits (id, expires_at, actions) VALUES ('draftbot', '2999-01-01T00:00:00Z', '["list_documents"]')`).run()
+    expect((await call('draftbot-token', 'list_documents')).status).toBe(200)
+    const refused = await call('draftbot-token', 'add_version', { title: 'Notes', markdown: '# Notes' })
+    expect(refused).toMatchObject({ status: 403, body: { error: expect.stringMatching(/^Nothing changed: this token can't add_version/) } })
+    const { body } = await rpc('draftbot-token', 'tools/list')
+    expect(body.result.tools.map((t: { name: string }) => t.name)).toEqual(['list_documents'])
+  })
+
+  it('gives a shared link a year', async () => {
+    const { body } = await call('sam-token', 'share', { name: 'Jo', access: 'viewer' })
+    const row = await env.DB.prepare('SELECT expires_at FROM token_limits WHERE id = ?').bind(body.member.id).first<{ expires_at: string }>()
+    const days = (Date.parse(row!.expires_at) - Date.now()) / 86_400_000
+    expect(days).toBeGreaterThan(364)
+    expect(days).toBeLessThan(366)
+  })
+})
+
+describe('off switch', () => {
+  it('answers every API and MCP call with what did not happen, until it is back on', async () => {
+    await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('off-switch', 'on')").run()
+    expect(await call('sam-token', 'list_documents')).toMatchObject({ status: 503, body: { error: expect.stringMatching(/^Switched off: nothing was done/) } })
+    expect(await rpc('assistant-token', 'tools/list')).toMatchObject({ status: 503, body: { error: { message: expect.stringMatching(/^Switched off/) } } })
+    await env.DB.prepare("DELETE FROM settings WHERE key = 'off-switch'").run()
+    expect((await call('sam-token', 'list_documents')).status).toBe(200)
   })
 })
